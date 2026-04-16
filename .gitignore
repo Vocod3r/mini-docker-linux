@@ -1,0 +1,6 @@
+engine
+*.o
+logs/
+rootfs-base/
+rootfs-alpha/
+*.sock

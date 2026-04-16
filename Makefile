@@ -1,55 +1,38 @@
-# ─────────────────────────────────────────────────────────────
-#  Makefile — OS-Jackfruit container runtime
-#
-#  No kernel module required — memory monitoring via /proc.
-#
-#  Targets:
-#    all     build all binaries (default)
-#    ci      same as all — CI-safe, no kernel headers needed
-#    clean   remove build artefacts
-#    test    quick smoke test
-# ─────────────────────────────────────────────────────────────
+# Makefile — mini-docker-linux
+# No kernel module — /proc based monitoring
 
-CC      := gcc
-CFLAGS  := -Wall -Wextra -O2 -g
+CC     := gcc
+CFLAGS := -Wall -O2 -g -Wno-format-truncation -Wno-stringop-truncation \
+          -Wno-unused-result -Wno-implicit-function-declaration
+LIBS   := -lpthread
 
-# engine is built from BOTH engine.c and monitor.c
-# (monitor.c provides proc_read_mem etc. as regular C functions)
-ENGINE      := engine
-CPU_HOG     := cpu_hog
-IO_PULSE    := io_pulse
-MEMORY_HOG  := memory_hog
+BINS := engine cpu_hog io_pulse memory_hog
 
 .PHONY: all ci clean test
 
-all: $(ENGINE) $(CPU_HOG) $(IO_PULSE) $(MEMORY_HOG)
+all: $(BINS)
 
 # engine links engine.c + monitor.c together
-$(ENGINE): engine.c monitor.c monitor_ioctl.h
-	$(CC) $(CFLAGS) -o $@ engine.c monitor.c
+engine: engine.c monitor.c monitor_ioctl.h
+	$(CC) $(CFLAGS) -o $@ engine.c monitor.c $(LIBS)
 
-$(CPU_HOG): cpu_hog.c
+cpu_hog: cpu_hog.c
 	$(CC) $(CFLAGS) -o $@ $<
 
-$(IO_PULSE): io_pulse.c
+io_pulse: io_pulse.c
 	$(CC) $(CFLAGS) -o $@ $<
 
-$(MEMORY_HOG): memory_hog.c
+memory_hog: memory_hog.c
 	$(CC) $(CFLAGS) -o $@ $<
 
-# CI target — identical to all (no kernel headers needed)
 ci: all
-	@echo "CI build complete."
+	@./engine 2>&1 | head -3 ; true
+	@echo "CI build OK"
 
-# Smoke test: usage message + empty list
 test: all
-	@echo "=== Usage check ==="
-	@./$(ENGINE) 2>&1 | head -5 ; true
-	@echo "=== List (empty) ==="
-	@./$(ENGINE) list 2>&1 ; true
-	@echo "Smoke test passed."
+	@echo "=== usage ===" && ./engine 2>&1 | head -5 ; true
+	@echo "=== supervisor not running ===" && ./engine ps 2>&1 ; true
 
 clean:
-	rm -f $(ENGINE) $(CPU_HOG) $(IO_PULSE) $(MEMORY_HOG)
-	rm -f engine.log
-	rm -rf /tmp/container_swap
+	rm -f $(BINS) engine.log
+	rm -rf /tmp/container_swap /tmp/mini_runtime.sock
