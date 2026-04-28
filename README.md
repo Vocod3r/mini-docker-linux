@@ -276,6 +276,7 @@ sudo ./engine stop beta
 # Clean build artefacts
 make clean
 ```
+#### made by Vipin V Lokesh (AM321) and Aariz Dudekula (AM330)
 
 ---
 
